@@ -1,0 +1,20 @@
+{
+  "name": "lan-sharebox",
+  "version": "1.0.0",
+  "description": "局域网跨设备文本/文件传输工具 — 电脑手机互传，扫码即用",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["lan", "share", "file-transfer", "clipboard", "qrcode"],
+  "license": "MIT",
+  "dependencies": {
+    "address": "^2.0.3",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.7.5",
+    "uuid": "^10.0.0"
+  }
+}

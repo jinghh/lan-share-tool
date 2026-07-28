@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>LAN ShareBox — 局域网传输</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- 顶部导航栏 -->
+  <header class="header">
+    <div class="header-left">
+      <span class="logo">🔗</span>
+      <h1 class="title">LAN ShareBox</h1>
+    </div>
+    <div class="header-right">
+      <span class="device-count" id="deviceCount">在线: 1</span>
+    </div>
+  </header>
+
+  <!-- 主布局 -->
+  <div class="main-container">
+
+    <!-- 左侧面板（桌面端可见） -->
+    <aside class="sidebar" id="sidebar">
+      <!-- 设备列表 -->
+      <section class="panel devices-panel">
+        <h2 class="panel-title">📱 在线设备</h2>
+        <ul class="device-list" id="deviceList">
+          <li class="device-item device-self" id="selfDevice">
+            <span class="device-icon">💻</span>
+            <span class="device-name">本设备</span>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 二维码（桌面端） -->
+      <section class="panel qr-panel" id="qrPanel">
+        <h2 class="panel-title">📷 扫码连接</h2>
+        <div class="qr-container">
+          <img id="qrImage" src="" alt="QR Code" class="qr-image">
+          <p class="qr-hint">用手机扫描二维码即可连接</p>
+        </div>
+        <div class="lan-url" id="lanUrl"></div>
+      </section>
+    </aside>
+
+    <!-- 右侧主内容区 -->
+    <main class="content">
+      <!-- 消息/文件 标签 -->
+      <div class="tabs">
+        <button class="tab active" data-tab="text" id="tabText">💬 文本消息</button>
+        <button class="tab" data-tab="file" id="tabFile">📎 文件传输</button>
+      </div>
+
+      <!-- 文本消息面板 -->
+      <div class="tab-content active" id="textPanel">
+        <div class="message-list" id="messageList">
+          <div class="empty-state">
+            <span class="empty-icon">💬</span>
+            <p>还没有消息，发送第一条吧</p>
+          </div>
+        </div>
+        <div class="input-area">
+          <textarea
+            id="textInput"
+            class="text-input"
+            placeholder="输入文本内容，回车发送..."
+            rows="2"
+            maxlength="5000"
+          ></textarea>
+          <button class="btn btn-send" id="btnSend" title="发送">
+            <span class="btn-icon">📤</span>
+            <span class="btn-text">发送</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 文件传输面板 -->
+      <div class="tab-content" id="filePanel">
+        <div class="file-list" id="fileList">
+          <div class="empty-state">
+            <span class="empty-icon">📎</span>
+            <p>还没有文件，上传第一个文件吧</p>
+          </div>
+        </div>
+        <div class="upload-area" id="uploadArea">
+          <input type="file" id="fileInput" class="file-input" hidden>
+          <button class="btn btn-upload" id="btnUpload">
+            <span class="btn-icon">📁</span>
+            <span class="btn-text">选择文件</span>
+          </button>
+          <span class="upload-hint">或拖拽文件到此处上传（最大 100MB）</span>
+          <div class="upload-progress" id="uploadProgress" style="display:none;">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <span class="progress-text" id="progressText">0%</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 通知 Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Socket.IO 客户端 -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
