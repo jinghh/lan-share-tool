@@ -25,17 +25,38 @@ if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
 
-// ========== 启动时清理旧文件 ==========
+// ========== 本机判断（用于「清理」权限） ==========
+// 运行服务的本机局域网 IP（访问自身时来源 IP 可能是它）
+const SERVER_LAN_IP = address.ip();
+
+// 判断连接是否来自「运行服务的本机」：
+//   - 环回地址（localhost 访问）：::1 / 127.0.0.1 / 127.x
+//   - 本机局域网 IP（同机用 LAN 地址访问）
+function isLocalhost(ip) {
+  if (!ip) return false;
+  const normalized = String(ip).replace(/^::ffff:/, '');
+  return normalized === '::1'
+      || normalized === '127.0.0.1'
+      || normalized.startsWith('127.')
+      || normalized === SERVER_LAN_IP;
+}
+
+// 清空 uploads 目录里的所有上传文件（保留 .gitkeep），返回删除数量
 function cleanUploads() {
   const files = fs.readdirSync(UPLOADS_DIR);
+  let count = 0;
   files.forEach((file) => {
     if (file !== '.gitkeep') {
-      fs.unlinkSync(path.join(UPLOADS_DIR, file));
+      try {
+        fs.unlinkSync(path.join(UPLOADS_DIR, file));
+        count++;
+      } catch (e) {
+        // 忽略单个文件删除失败
+      }
     }
   });
-  console.log('🧹 已清理旧的上传文件');
+  return count;
 }
-cleanUploads();
 
 // ========== 内存数据存储 ==========
 const onlineDevices = new Map();   // socketId → { id, name, ip, type }
@@ -144,6 +165,7 @@ io.on('connection', (socket) => {
   socket.emit('init', {
     deviceId,
     deviceName: deviceInfo.name,
+    isHost: isLocalhost(clientIP),
     onlineDevices: Array.from(onlineDevices.values()).map((d) => ({
       id: d.id,
       name: d.name,
@@ -207,6 +229,33 @@ io.on('connection', (socket) => {
     // 广播给所有客户端（包括发送者以确认）
     io.emit('text-message', message);
     console.log(`💬 文本消息: "${data.content.slice(0, 50)}${data.content.length > 50 ? '...' : ''}" 来自 ${from}`);
+  });
+
+  // 清理（仅本机可执行）
+  socket.on('clean', (data) => {
+    // 权限校验：仅允许运行服务的本机
+    if (!isLocalhost(socket.handshake.address)) {
+      socket.emit('clean-error', { message: '只有本机可以执行清理' });
+      console.log(`⚠️ 清理被拒绝: 来自 ${socket.handshake.address}`);
+      return;
+    }
+
+    const type = (data && data.type) || 'all';
+    const detail = [];
+
+    if (type === 'text' || type === 'all') {
+      recentMessages.length = 0;
+      detail.push('文本消息');
+    }
+    if (type === 'file' || type === 'all') {
+      const removed = cleanUploads();
+      availableFiles.clear();
+      detail.push(`文件(${removed})`);
+    }
+
+    // 广播给所有设备，同步清空界面
+    io.emit('cleaned', { type, by: deviceInfo.name });
+    console.log(`🧹 清理完成: ${detail.join('、')}（由 ${deviceInfo.name} 发起）`);
   });
 
   // 断开连接

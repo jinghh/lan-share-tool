@@ -23,6 +23,17 @@ const tabText = $('#tabText');
 const tabFile = $('#tabFile');
 const textPanel = $('#textPanel');
 const filePanel = $('#filePanel');
+const cleanupWrap = $('#cleanupWrap');
+const btnCleanup = $('#btnCleanup');
+const cleanupMenu = $('#cleanupMenu');
+const cleanModalOverlay = $('#cleanModalOverlay');
+const cleanModalIcon = $('#cleanModalIcon');
+const cleanModalTitle = $('#cleanModalTitle');
+const cleanModalDesc = $('#cleanModalDesc');
+const cleanModalInputWrap = $('#cleanModalInputWrap');
+const cleanModalInput = $('#cleanModalInput');
+const cleanModalCancel = $('#cleanModalCancel');
+const cleanModalConfirm = $('#cleanModalConfirm');
 
 // ========== Socket.IO 连接 ==========
 const socket = io({
@@ -31,6 +42,10 @@ const socket = io({
 
 let myDeviceId = '';
 let myDeviceName = '';
+let isHost = false;
+
+// 当前文件状态（id → size），用于清理前统计数量与总大小
+const filesState = new Map();
 
 // 连接状态日志
 socket.on('connect', () => {
@@ -170,6 +185,12 @@ socket.on('init', (data) => {
   console.log('📩 收到 init 数据:', data);
   myDeviceId = data.deviceId;
   myDeviceName = data.deviceName;
+  isHost = !!data.isHost;
+
+  // 仅本机（运行服务的设备）显示清理入口
+  if (isHost && cleanupWrap) {
+    cleanupWrap.removeAttribute('hidden');
+  }
 
   // 更新本设备显示
   if (selfDevice) {
@@ -192,6 +213,7 @@ socket.on('init', (data) => {
   }
 
   // 渲染已有文件
+  filesState.clear();
   if (data.availableFiles && data.availableFiles.length > 0) {
     data.availableFiles.forEach((f) => addFileItem(f));
   }
@@ -214,6 +236,7 @@ socket.on('file-added', (file) => {
 
 // 文件被删除
 socket.on('file-removed', (data) => {
+  filesState.delete(data.id);
   const el = document.querySelector('[data-file-id="' + data.id + '"]');
   if (el) {
     el.style.transition = 'opacity 0.2s';
@@ -223,6 +246,27 @@ socket.on('file-removed', (data) => {
       checkFileEmpty();
     }, 200);
   }
+});
+
+// 清理完成（由本机发起，广播给所有设备）
+socket.on('cleaned', (data) => {
+  const type = (data && data.type) || 'all';
+  if (type === 'text' || type === 'all') {
+    if (messageList) messageList.innerHTML = '';
+    checkMessageEmpty();
+  }
+  if (type === 'file' || type === 'all') {
+    if (fileList) fileList.innerHTML = '';
+    filesState.clear();
+    checkFileEmpty();
+  }
+  const label = type === 'text' ? '文本消息' : type === 'file' ? '文件' : '文本与文件';
+  showToast('🧹 已清理' + label, 'success');
+});
+
+// 清理被拒绝（非本机）
+socket.on('clean-error', (data) => {
+  showToast((data && data.message) || '清理失败', 'error');
 });
 
 // 设备上线
@@ -350,6 +394,9 @@ function addFileItem(file) {
   const empty = fileList.querySelector('.empty-state');
   if (empty) empty.remove();
 
+  // 记录文件大小，供清理前统计
+  filesState.set(file.id, file.size || 0);
+
   if (document.querySelector('[data-file-id="' + file.id + '"]')) return;
 
   const fileDiv = document.createElement('div');
@@ -376,6 +423,16 @@ function addFileItem(file) {
     '</div>';
 
   fileList.appendChild(fileDiv);
+}
+
+function checkMessageEmpty() {
+  if (messageList && messageList.querySelectorAll('.message-item').length === 0) {
+    messageList.innerHTML =
+      '<div class="empty-state">' +
+      '<span class="empty-icon">💬</span>' +
+      '<p>还没有消息，发送第一条吧</p>' +
+      '</div>';
+  }
 }
 
 function checkFileEmpty() {
@@ -536,6 +593,150 @@ function downloadFile(fileId, fileName) {
   a.click();
   document.body.removeChild(a);
   showToast('⬇️ 正在下载 ' + fileName, 'success');
+}
+
+// ========== 清理（仅本机）==========
+function toggleCleanupMenu(open) {
+  if (!cleanupMenu) return;
+  const shouldOpen = typeof open === 'boolean' ? open : !cleanupMenu.classList.contains('show');
+  cleanupMenu.classList.toggle('show', shouldOpen);
+  if (btnCleanup) btnCleanup.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
+if (btnCleanup) {
+  btnCleanup.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleCleanupMenu();
+  });
+}
+
+// 点击页面其他位置收起菜单
+document.addEventListener('click', (e) => {
+  if (!cleanupWrap || !cleanupMenu) return;
+  if (!cleanupWrap.contains(e.target)) {
+    toggleCleanupMenu(false);
+  }
+});
+
+// 菜单项：清理文本 / 文件 / 全部
+if (cleanupMenu) {
+  cleanupMenu.addEventListener('click', (e) => {
+    const item = e.target.closest('.cleanup-item');
+    if (!item) return;
+    const type = item.getAttribute('data-clean');
+    toggleCleanupMenu(false);
+    openCleanModal(type);
+  });
+}
+
+// ========== 清理确认弹窗 ==========
+const CLEAN_CONFIRM_WORD = '确认';
+
+// 统计当前消息数与文件（数量 / 总大小）
+function getMessageCount() {
+  return messageList ? messageList.querySelectorAll('.message-item').length : 0;
+}
+function getFileStats() {
+  let count = 0;
+  let total = 0;
+  filesState.forEach((size) => {
+    count += 1;
+    total += size || 0;
+  });
+  return { count, total };
+}
+
+// 根据清理类型生成描述文案（含数量 / 总大小）
+function buildCleanDesc(type) {
+  const msgCount = getMessageCount();
+  const stats = getFileStats();
+  if (type === 'text') {
+    return msgCount > 0
+      ? '将清空 ' + msgCount + ' 条文本消息。'
+      : '当前没有文本消息。';
+  }
+  if (type === 'file') {
+    return stats.count > 0
+      ? '将删除 ' + stats.count + ' 个文件（共 ' + formatSize(stats.total) + '）。'
+      : '当前没有文件。';
+  }
+  // all
+  return '将清空 ' + msgCount + ' 条文本消息，并删除 ' + stats.count +
+    ' 个文件（共 ' + formatSize(stats.total) + '）。\n此操作不可撤销。';
+}
+
+let cleanModalType = '';
+
+function openCleanModal(type) {
+  if (!cleanModalOverlay) {
+    // 兜底：没有弹窗 DOM 时退回原生确认
+    if (window.confirm(buildCleanDesc(type))) socket.emit('clean', { type: type });
+    return;
+  }
+
+  cleanModalType = type;
+  const icons = { text: '💬', file: '📎', all: '🗑️' };
+  const titles = { text: '清理文本', file: '清理文件', all: '全部清理' };
+  if (cleanModalIcon) cleanModalIcon.textContent = icons[type] || '🧹';
+  if (cleanModalTitle) cleanModalTitle.textContent = titles[type] || '清理';
+  if (cleanModalDesc) cleanModalDesc.textContent = buildCleanDesc(type);
+
+  // 仅「全部清理」需要输入“确认”二字防误触
+  const needInput = type === 'all';
+  if (cleanModalInputWrap) cleanModalInputWrap.hidden = !needInput;
+  if (cleanModalInput) cleanModalInput.value = '';
+  if (cleanModalConfirm) cleanModalConfirm.disabled = needInput;
+
+  cleanModalOverlay.hidden = false;
+  if (needInput && cleanModalInput) {
+    setTimeout(() => cleanModalInput.focus(), 0);
+  }
+}
+
+function closeCleanModal() {
+  if (!cleanModalOverlay) return;
+  cleanModalOverlay.hidden = true;
+  cleanModalType = '';
+}
+
+if (cleanModalCancel) {
+  cleanModalCancel.addEventListener('click', closeCleanModal);
+}
+
+// 点击遮罩关闭
+if (cleanModalOverlay) {
+  cleanModalOverlay.addEventListener('click', (e) => {
+    if (e.target === cleanModalOverlay) closeCleanModal();
+  });
+}
+
+// Esc 关闭
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && cleanModalOverlay && !cleanModalOverlay.hidden) closeCleanModal();
+});
+
+// 输入“确认”后才允许提交（仅对「全部清理」生效）
+if (cleanModalInput) {
+  cleanModalInput.addEventListener('input', () => {
+    if (!cleanModalConfirm) return;
+    const ok = cleanModalInput.value.trim() === CLEAN_CONFIRM_WORD;
+    cleanModalConfirm.disabled = !ok;
+  });
+  // 回车提交
+  cleanModalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && cleanModalConfirm && !cleanModalConfirm.disabled) {
+      cleanModalConfirm.click();
+    }
+  });
+}
+
+// 确认清理
+if (cleanModalConfirm) {
+  cleanModalConfirm.addEventListener('click', () => {
+    if (cleanModalConfirm.disabled) return;
+    socket.emit('clean', { type: cleanModalType });
+    closeCleanModal();
+  });
 }
 
 // ========== 标签切换 ==========

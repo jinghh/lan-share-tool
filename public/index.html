@@ -17,6 +17,22 @@
     </div>
     <div class="header-right">
       <span class="device-count" id="deviceCount">在线: 1</span>
+      <div class="cleanup-wrap" id="cleanupWrap" hidden>
+        <button class="cleanup-btn" id="btnCleanup" type="button" title="清理（仅本机可用）">
+          <span>🧹</span><span class="cleanup-btn-text">清理</span>
+        </button>
+        <div class="cleanup-menu" id="cleanupMenu">
+          <button class="cleanup-item" data-clean="text" type="button">
+            <span>💬</span><span>清理文本</span>
+          </button>
+          <button class="cleanup-item" data-clean="file" type="button">
+            <span>📎</span><span>清理文件</span>
+          </button>
+          <button class="cleanup-item danger" data-clean="all" type="button">
+            <span>🗑️</span><span>全部清理</span>
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -106,6 +122,22 @@
 
   <!-- 通知 Toast -->
   <div class="toast" id="toast"></div>
+
+  <!-- 清理确认弹窗（仅本机触发） -->
+  <div class="modal-overlay" id="cleanModalOverlay" hidden>
+    <div class="modal" id="cleanModal" role="dialog" aria-modal="true">
+      <div class="modal-icon" id="cleanModalIcon">🗑️</div>
+      <h3 class="modal-title" id="cleanModalTitle">全部清理</h3>
+      <p class="modal-desc" id="cleanModalDesc"></p>
+      <div class="modal-confirm-input" id="cleanModalInputWrap" hidden>
+        <input type="text" id="cleanModalInput" placeholder='输入“确认”以继续' autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-cancel" id="cleanModalCancel" type="button">取消</button>
+        <button class="modal-btn modal-confirm danger" id="cleanModalConfirm" type="button" disabled>确认清理</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Socket.IO 客户端 -->
   <script src="/socket.io/socket.io.js"></script>
