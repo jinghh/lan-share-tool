@@ -126,7 +126,13 @@ app.get('/api/download/:fileId', (req, res) => {
     return res.status(404).json({ error: '文件已从磁盘删除' });
   }
 
-  res.download(filePath, fileInfo.originalName);
+  // ?inline=1 → 浏览器内联打开（本机用）；默认走下载（非本机设备用）
+  if (req.query.inline) {
+    res.setHeader('Content-Type', fileInfo.mimeType || 'application/octet-stream');
+    res.sendFile(filePath);
+  } else {
+    res.download(filePath, fileInfo.originalName);
+  }
 });
 
 // 二维码生成

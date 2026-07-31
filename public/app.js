@@ -428,7 +428,10 @@ function addFileItem(file) {
       '</div>' +
     '</div>' +
     '<div class="file-actions">' +
-      '<button class="btn-download" data-action="download" data-file-id="' + file.id + '" data-file-name="' + escapeHtml(file.originalName) + '">⬇️ 下载</button>' +
+      (isHost
+        ? '<button class="btn-download" data-action="open" data-file-id="' + file.id + '">📂 打开</button>'
+        : '<button class="btn-download" data-action="download" data-file-id="' + file.id + '" data-file-name="' + escapeHtml(file.originalName) + '">⬇️ 下载</button>'
+      ) +
     '</div>';
 
   fileList.appendChild(fileDiv);
@@ -466,7 +469,14 @@ document.addEventListener('click', (e) => {
     }
   }
 
-  // 下载按钮
+  // 打开按钮（本机：新标签页内联打开，图片/PDF/文本等浏览器直接渲染）
+  const openBtn = e.target.closest('[data-action="open"]');
+  if (openBtn) {
+    const fid = openBtn.getAttribute('data-file-id');
+    window.open('/api/download/' + fid + '?inline=1', '_blank');
+  }
+
+  // 下载按钮（非本机设备）
   const downloadBtn = e.target.closest('[data-action="download"]');
   if (downloadBtn) {
     const fid = downloadBtn.getAttribute('data-file-id');
