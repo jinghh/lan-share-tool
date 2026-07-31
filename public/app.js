@@ -187,6 +187,15 @@ socket.on('init', (data) => {
   myDeviceName = data.deviceName;
   isHost = !!data.isHost;
 
+  // 前端兜底：如果服务端未下发 isHost（旧版服务），用 location.hostname 判断
+  // 最终 cleanup 动作仍由服务端 IP 校验，所以这里只影响按钮显隐，安全性不变
+  if (!isHost) {
+    var h = window.location.hostname;
+    if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]') {
+      isHost = true;
+    }
+  }
+
   // 仅本机（运行服务的设备）显示清理入口
   if (isHost && cleanupWrap) {
     cleanupWrap.removeAttribute('hidden');
