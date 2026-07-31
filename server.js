@@ -58,10 +58,48 @@ function cleanUploads() {
   return count;
 }
 
+// ========== 文件元数据持久化 ==========
+// 目的：服务重启后能恢复上传文件列表（文件本身保留在磁盘上）
+const METADATA_FILE = path.join(UPLOADS_DIR, '.metadata.json');
+
+// 启动时恢复文件记录（只恢复磁盘上实际存在的文件）
+function loadFileMetadata() {
+  try {
+    if (fs.existsSync(METADATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(METADATA_FILE, 'utf-8'));
+      if (Array.isArray(data)) {
+        data.forEach((fi) => {
+          if (fi.id && fi.storedName && fs.existsSync(path.join(UPLOADS_DIR, fi.storedName))) {
+            availableFiles.set(fi.id, fi);
+          }
+        });
+        if (availableFiles.size > 0) {
+          console.log(`📁 已恢复 ${availableFiles.size} 个文件记录`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️  文件元数据恢复失败，将忽略:', e.message);
+  }
+}
+
+// 每次文件增删后持久化元数据
+function saveFileMetadata() {
+  try {
+    const data = JSON.stringify(Array.from(availableFiles.values()));
+    fs.writeFileSync(METADATA_FILE, data, 'utf-8');
+  } catch (e) {
+    console.warn('⚠️  文件元数据保存失败:', e.message);
+  }
+}
+
 // ========== 内存数据存储 ==========
 const onlineDevices = new Map();   // socketId → { id, name, ip, type }
 const recentMessages = [];         // [{ id, from, content, timestamp }]
 const availableFiles = new Map();  // fileId → { id, originalName, size, mimeType, from, timestamp, storedName }
+
+// 启动时从磁盘恢复文件列表
+loadFileMetadata();
 
 // ========== Multer 配置 ==========
 const storage = multer.diskStorage({
@@ -99,6 +137,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   };
 
   availableFiles.set(fileId, fileInfo);
+  saveFileMetadata();
 
   // 通知所有连接的客户端
   io.emit('file-added', {
@@ -256,6 +295,7 @@ io.on('connection', (socket) => {
     if (type === 'file' || type === 'all') {
       const removed = cleanUploads();
       availableFiles.clear();
+      saveFileMetadata();
       detail.push(`文件(${removed})`);
     }
 
