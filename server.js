@@ -41,18 +41,18 @@ function isLocalhost(ip) {
       || normalized === SERVER_LAN_IP;
 }
 
-// 清空 uploads 目录里的所有上传文件（保留 .gitkeep），返回删除数量
+// 清空 uploads 目录里的所有上传文件（保留 .gitkeep / .metadata.json / .messages.json），返回删除数量
 function cleanUploads() {
   const files = fs.readdirSync(UPLOADS_DIR);
   let count = 0;
   files.forEach((file) => {
-    if (file !== '.gitkeep') {
-      try {
-        fs.unlinkSync(path.join(UPLOADS_DIR, file));
-        count++;
-      } catch (e) {
-        // 忽略单个文件删除失败
-      }
+    // 跳过所有隐藏文件（以 . 开头）：.gitkeep / .metadata.json / .messages.json
+    if (file.startsWith('.')) return;
+    try {
+      fs.unlinkSync(path.join(UPLOADS_DIR, file));
+      count++;
+    } catch (e) {
+      // 忽略单个文件删除失败
     }
   });
   return count;
@@ -93,13 +93,45 @@ function saveFileMetadata() {
   }
 }
 
+// ========== 消息持久化 ==========
+const MESSAGES_FILE = path.join(UPLOADS_DIR, '.messages.json');
+
+function loadMessages() {
+  try {
+    if (fs.existsSync(MESSAGES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf-8'));
+      if (Array.isArray(data)) {
+        data.forEach((m) => {
+          if (m && m.id && m.content) recentMessages.push(m);
+        });
+        // 数量上限裁剪
+        while (recentMessages.length > MAX_MESSAGES) recentMessages.shift();
+        if (recentMessages.length > 0) {
+          console.log(`💬 已恢复 ${recentMessages.length} 条历史消息`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('⚠️  消息恢复失败，将忽略:', e.message);
+  }
+}
+
+function saveMessages() {
+  try {
+    fs.writeFileSync(MESSAGES_FILE, JSON.stringify(recentMessages), 'utf-8');
+  } catch (e) {
+    console.warn('⚠️  消息保存失败:', e.message);
+  }
+}
+
 // ========== 内存数据存储 ==========
 const onlineDevices = new Map();   // socketId → { id, name, ip, type }
 const recentMessages = [];         // [{ id, from, content, timestamp }]
 const availableFiles = new Map();  // fileId → { id, originalName, size, mimeType, from, timestamp, storedName }
 
-// 启动时从磁盘恢复文件列表
+// 启动时从磁盘恢复文件列表与历史消息
 loadFileMetadata();
+loadMessages();
 
 // ========== Multer 配置 ==========
 const storage = multer.diskStorage({
@@ -270,6 +302,7 @@ io.on('connection', (socket) => {
     while (recentMessages.length > MAX_MESSAGES) {
       recentMessages.shift();
     }
+    saveMessages();
 
     // 广播给所有客户端（包括发送者以确认）
     io.emit('text-message', message);
@@ -290,6 +323,7 @@ io.on('connection', (socket) => {
 
     if (type === 'text' || type === 'all') {
       recentMessages.length = 0;
+      saveMessages();
       detail.push('文本消息');
     }
     if (type === 'file' || type === 'all') {
