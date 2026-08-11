@@ -15,9 +15,9 @@ const io = new Server(server, {
   maxHttpBufferSize: 100 * 1024 * 1024, // 100MB for Socket.IO
 });
 
-let PORT = process.env.PORT || 3000;
+let PORT = process.env.PORT || 3456;
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1GB
 const MAX_MESSAGES = 50;
 
 // 确保 uploads 目录存在
@@ -151,38 +151,47 @@ const upload = multer({
 // ========== Express 中间件 ==========
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 文件上传
-app.post('/api/upload', upload.single('file'), (req, res) => {
-  if (!req.file) {
+// 文件上传（支持批量）
+app.post('/api/upload', upload.array('files', 50), (req, res) => {
+  if (!req.files || req.files.length === 0) {
     return res.status(400).json({ error: '没有选择文件' });
   }
 
-  const fileId = uuidv4();
-  const fileInfo = {
-    id: fileId,
-    originalName: req.file.originalname,
-    size: req.file.size,
-    mimeType: req.file.mimetype,
-    storedName: req.file.filename,
-    from: req.body.from || '未知设备',
-    timestamp: Date.now(),
-  };
+  const results = [];
+  const batchFiles = [];
 
-  availableFiles.set(fileId, fileInfo);
+  for (const file of req.files) {
+    const fileId = uuidv4();
+    const fileInfo = {
+      id: fileId,
+      originalName: file.originalname,
+      size: file.size,
+      mimeType: file.mimetype,
+      storedName: file.filename,
+      from: req.body.from || '未知设备',
+      timestamp: Date.now(),
+    };
+
+    availableFiles.set(fileId, fileInfo);
+    batchFiles.push({
+      id: fileId,
+      originalName: fileInfo.originalName,
+      size: fileInfo.size,
+      mimeType: fileInfo.mimeType,
+      from: fileInfo.from,
+      timestamp: fileInfo.timestamp,
+    });
+    results.push({ success: true, fileId, originalName: file.originalname });
+
+    console.log(`📎 文件上传: ${fileInfo.originalName} (${(fileInfo.size / 1024).toFixed(1)} KB) 来自 ${fileInfo.from}`);
+  }
+
   saveFileMetadata();
 
-  // 通知所有连接的客户端
-  io.emit('file-added', {
-    id: fileId,
-    originalName: fileInfo.originalName,
-    size: fileInfo.size,
-    mimeType: fileInfo.mimeType,
-    from: fileInfo.from,
-    timestamp: fileInfo.timestamp,
-  });
+  // 批量通知所有连接的客户端
+  io.emit('files-added', batchFiles);
 
-  console.log(`📎 文件上传: ${fileInfo.originalName} (${(fileInfo.size / 1024).toFixed(1)} KB) 来自 ${fileInfo.from}`);
-  res.json({ success: true, fileId });
+  res.json({ success: true, files: results });
 });
 
 // 文件下载

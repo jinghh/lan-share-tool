@@ -243,6 +243,13 @@ socket.on('file-added', (file) => {
   showToast('📎 收到文件: ' + file.originalName, 'success');
 });
 
+// 批量文件通知
+socket.on('files-added', (files) => {
+  console.log('📎 收到批量文件通知:', files.length + ' 个文件');
+  files.forEach(function (f) { addFileItem(f); });
+  showToast('📎 收到 ' + files.length + ' 个文件', 'success');
+});
+
 // 文件被删除
 socket.on('file-removed', (data) => {
   filesState.delete(data.id);
@@ -512,7 +519,7 @@ btnUpload.addEventListener('click', () => {
 
 fileInput.addEventListener('change', () => {
   if (fileInput.files.length > 0) {
-    uploadFile(fileInput.files[0]);
+    uploadFiles(fileInput.files);
     fileInput.value = '';
   }
 });
@@ -536,7 +543,7 @@ uploadArea.addEventListener('drop', (e) => {
   uploadArea.style.borderColor = '';
   const files = e.dataTransfer.files;
   if (files.length > 0) {
-    uploadFile(files[0]);
+    uploadFiles(files);
   }
 });
 
@@ -551,52 +558,101 @@ document.addEventListener('drop', (e) => {
   }
   const files = e.dataTransfer.files;
   if (files.length > 0) {
-    uploadFile(files[0]);
+    uploadFiles(files);
     tabFile.click();
   }
 });
 
-function uploadFile(file) {
-  if (file.size > 100 * 1024 * 1024) {
-    showToast('文件超过 100MB 限制', 'error');
-    return;
+// 批量上传入口
+function uploadFiles(fileList) {
+  var total = fileList.length;
+  var completed = 0;
+  var failed = 0;
+  var cancelled = false;
+
+  // 预检文件大小
+  for (var i = 0; i < total; i++) {
+    if (fileList[i].size > 1 * 1024 * 1024 * 1024) {
+      showToast(fileList[i].name + ' 超过 1GB 限制，已跳过', 'error');
+      // 标记为跳过（从列表中移除）
+    }
   }
 
-  var formData = new FormData();
-  formData.append('file', file);
-  formData.append('from', myDeviceName);
+  // 过滤掉超限文件
+  var validFiles = [];
+  for (var i = 0; i < total; i++) {
+    if (fileList[i].size <= 1 * 1024 * 1024 * 1024) {
+      validFiles.push(fileList[i]);
+    }
+  }
 
-  var xhr = new XMLHttpRequest();
+  if (validFiles.length === 0) return;
 
   uploadProgress.style.display = 'flex';
   progressFill.style.width = '0%';
-  progressText.textContent = '0%';
+  progressText.textContent = '0/' + validFiles.length;
+
+  function uploadNext(index) {
+    if (cancelled || index >= validFiles.length) {
+      uploadProgress.style.display = 'none';
+      if (!cancelled) {
+        if (failed > 0) {
+          showToast('上传完成: ' + completed + ' 成功, ' + failed + ' 失败', 'error');
+        } else if (completed > 1) {
+          showToast('✅ ' + completed + ' 个文件全部上传成功', 'success');
+        }
+      }
+      return;
+    }
+
+    var file = validFiles[index];
+    uploadOneFile(file, function (ok) {
+      if (ok) { completed++; } else { failed++; }
+      uploadNext(index + 1);
+    });
+  }
+
+  uploadNext(0);
+}
+
+// 上传单个文件（由 uploadFiles 调用）
+function uploadOneFile(file, callback) {
+  var formData = new FormData();
+  formData.append('files', file);
+  formData.append('from', myDeviceName);
+
+  var xhr = new XMLHttpRequest();
 
   xhr.upload.addEventListener('progress', function (e) {
     if (e.lengthComputable) {
       var pct = Math.round((e.loaded / e.total) * 100);
       progressFill.style.width = pct + '%';
-      progressText.textContent = pct + '%';
+      // 进度文字由 uploadNext 循环管理，这里只更新进度条
     }
   });
 
   xhr.addEventListener('load', function () {
-    uploadProgress.style.display = 'none';
     if (xhr.status === 200) {
       showToast('✅ ' + file.name + ' 上传成功', 'success');
+      callback(true);
     } else {
+      var errMsg = '上传失败';
       try {
         var err = JSON.parse(xhr.responseText);
-        showToast(err.error || '上传失败', 'error');
-      } catch (ex) {
-        showToast('上传失败', 'error');
-      }
+        errMsg = err.error || errMsg;
+      } catch (ex) {}
+      showToast('❌ ' + file.name + ': ' + errMsg, 'error');
+      callback(false);
     }
   });
 
   xhr.addEventListener('error', function () {
-    uploadProgress.style.display = 'none';
-    showToast('网络错误，上传失败', 'error');
+    showToast('❌ ' + file.name + ': 网络错误', 'error');
+    callback(false);
+  });
+
+  xhr.addEventListener('abort', function () {
+    callback(false);
   });
 
   xhr.open('POST', '/api/upload');
