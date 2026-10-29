@@ -18,8 +18,8 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist
 OutputBaseFilename=LAN-ShareBox-Setup
-SetupIconFile=..\assets\app.ico
-UninstallDisplayIcon={app}\{#MyAppExeName}
+; 不使用自定义图标：exe 的图标已由 rcedit 写入，安装包/卸载图标沿用默认，
+; 避免不同 Inno Setup 版本对 PNG 压缩 ico 的解析差异导致编译失败
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

@@ -34,6 +34,8 @@ jobs:
         run: npx --yes rcedit@4 dist/ShareBox.exe --set-icon assets/app.ico --set-file-version "1.1.0" --set-product-version "1.1.0"
 
       - name: 生成安装包 (Inno Setup)
+        # 免安装 exe 才是主要产物，安装包失败不阻塞发布
+        continue-on-error: true
         shell: pwsh
         run: |
           $candidates = @(
@@ -54,17 +56,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ShareBox-Windows
-          path: |
-            dist/ShareBox.exe
-            dist/*.exe
+          if-no-files-found: warn
+          path: dist/*.exe
 
       - name: 发布 Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/ShareBox.exe
-            dist/LAN-ShareBox-Setup.exe
+          files: dist/*.exe
 
   build-macos:
     name: macOS (arm64 + x64)
@@ -101,20 +100,30 @@ jobs:
           codesign --force --deep --sign - "dist/LAN ShareBox-arm64.app" || true
           codesign --force --deep --sign - "dist/LAN ShareBox-x64.app" || true
 
-      - name: 生成 dmg
+      # zip 用 ditto 生成，保留权限与资源分支，作为必然产出的兜底格式
+      - name: 生成 zip
         run: |
-          hdiutil create -volname "LAN ShareBox (arm64)" -srcfolder "dist/LAN ShareBox-arm64.app" -ov -format UDZO "dist/LAN-ShareBox-arm64.dmg"
-          hdiutil create -volname "LAN ShareBox (x64)" -srcfolder "dist/LAN ShareBox-x64.app" -ov -format UDZO "dist/LAN-ShareBox-x64.dmg"
+          ditto -c -k --sequesterRsrc --keepParent "dist/LAN ShareBox-arm64.app" "dist/LAN-ShareBox-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent "dist/LAN ShareBox-x64.app" "dist/LAN-ShareBox-x64.zip"
+
+      - name: 生成 dmg
+        continue-on-error: true
+        run: |
+          hdiutil create -volname "LAN ShareBox" -srcfolder "dist/LAN ShareBox-arm64.app" -ov -format UDZO -fs HFS+ "dist/LAN-ShareBox-arm64.dmg"
+          hdiutil create -volname "LAN ShareBox" -srcfolder "dist/LAN ShareBox-x64.app" -ov -format UDZO -fs HFS+ "dist/LAN-ShareBox-x64.dmg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: ShareBox-macOS
-          path: dist/*.dmg
+          if-no-files-found: warn
+          path: |
+            dist/*.dmg
+            dist/*.zip
 
       - name: 发布 Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/LAN-ShareBox-arm64.dmg
-            dist/LAN-ShareBox-x64.dmg
+            dist/*.dmg
+            dist/*.zip
