@@ -1,4 +1,4 @@
-; Inno Setup 脚本：把 pkg 产出的单文件 exe 打成 Windows 安装包
+﻿; Inno Setup 脚本：把 pkg 产出的单文件 exe 打成 Windows 安装包
 ; 构建：ISCC.exe installer\setup.iss   （需先执行 npm run build:win 产出 dist\ShareBox.exe）
 
 #define MyAppName "LAN ShareBox"
@@ -16,8 +16,7 @@ AppVerName={#MyAppName} {#MyAppVersion}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-DisableDirPage=auto
-OutputDir=dist
+OutputDir=..\dist
 OutputBaseFilename=LAN-ShareBox-Setup
 SetupIconFile=..\assets\app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}

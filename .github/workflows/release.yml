@@ -34,10 +34,22 @@ jobs:
         run: npx --yes rcedit@4 dist/ShareBox.exe --set-icon assets/app.ico --set-file-version "1.1.0" --set-product-version "1.1.0"
 
       - name: 生成安装包 (Inno Setup)
+        shell: pwsh
         run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { $iscc = "ISCC.exe" }
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+          if (-not $iscc) {
+            Write-Host "Inno Setup 未预装，使用 choco 安装..."
+            choco install innosetup --no-progress -y
+            $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+          }
+          if (-not $iscc) { Write-Host "::error::ISCC.exe 不可用"; exit 1 }
+          Write-Host "ISCC: $iscc"
           & $iscc "installer\setup.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -70,8 +82,14 @@ jobs:
       - name: 生成图标
         run: node scripts/make-icon.js
 
-      - name: 打包二进制 (arm64 / x64)
-        run: npx @yao-pkg/pkg . --targets node22-macos-arm64,node22-macos-x64 --output dist/ShareBox
+      # 分两次单 target 调用：多 target 时 pkg 只追加差异后缀（两个 mac 目标
+      # 仅 arch 不同，会生成 ShareBox-arm64 / ShareBox-x64，不带 -macos），
+      # 单 target 时输出路径完全可控
+      - name: 打包二进制 (arm64)
+        run: npx @yao-pkg/pkg . --targets node22-macos-arm64 --output dist/ShareBox-macos-arm64
+
+      - name: 打包二进制 (x64)
+        run: npx @yao-pkg/pkg . --targets node22-macos-x64 --output dist/ShareBox-macos-x64
 
       - name: 打包成 .app
         run: |

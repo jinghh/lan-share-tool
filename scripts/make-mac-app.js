@@ -24,6 +24,11 @@ const bundleName = path.basename(appPath, '.app');
 
 if (!fs.existsSync(binary)) {
   console.error(`找不到二进制文件: ${binary}`);
+  // 打印目录内容便于排查（pkg 多 target 时的实际文件名可能带不同的后缀）
+  const dir = path.dirname(binary);
+  if (fs.existsSync(dir)) {
+    console.error(`目录 ${dir} 下的文件: ${fs.readdirSync(dir).join(', ')}`);
+  }
   process.exit(1);
 }
 
