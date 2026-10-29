@@ -2,7 +2,7 @@
 ; 构建：ISCC.exe installer\setup.iss   （需先执行 npm run build:win 产出 dist\ShareBox.exe）
 
 #define MyAppName "LAN ShareBox"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.1.3"
 #define MyAppPublisher "ShareBox"
 #define MyAppExeName "ShareBox.exe"
 #define MyAppId "9B7A2C51-6E4D-4C8A-9F3E-2D1A5B7C8E90"
