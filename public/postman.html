@@ -1,0 +1,182 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Postman API 调试工具</title>
+  <style>
+    :root{--bg:#0f1117;--panel:#171a21;--panel2:#1d212b;--panel3:#222734;--border:#2a2f3a;--text:#e6e8ee;--muted:#8b93a3;--accent:#ff6c37;--accent2:#ff7d4d;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--mono:"SFMono-Regular","JetBrains Mono",Consolas,"Courier New",monospace;--sans:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+    *{box-sizing:border-box}html,body{height:100%}body{margin:0;background:var(--bg);color:var(--text);font:14px var(--sans);overflow:hidden}button,input,textarea,select{font:inherit}code,pre,.mono{font-family:var(--mono)}
+    .app{height:100%;display:grid;grid-template-rows:auto auto 1fr auto;min-width:920px}.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--border)}.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700}.mark{width:18px;height:18px;border-radius:50%;background:var(--accent);position:relative;flex:0 0 auto}.mark:after{content:"";position:absolute;width:8px;height:8px;right:-2px;top:5px;border-radius:50%;background:var(--panel);border:2px solid var(--accent)}.top-actions{display:flex;gap:8px}
+    .curl-modal-overlay{position:fixed;inset:0;background:rgba(6,8,12,.72);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:18px;z-index:1200}.curl-modal-overlay[hidden]{display:none}.curl-modal{width:min(860px,100%);background:var(--panel);border:1px solid var(--border);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.45);padding:18px;display:flex;flex-direction:column;gap:12px}.curl-modal-title{font-size:16px;font-weight:700}.curl-modal-desc{color:var(--muted);font-size:12px;line-height:1.6}.curl-editor{width:100%;min-height:180px;resize:vertical;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:12px;font:13px/1.65 var(--mono);outline:none}.curl-editor:focus{border-color:var(--accent);background:#202532}.curl-modal-actions{display:flex;justify-content:flex-end;gap:8px}
+    .request-bar{display:grid;grid-template-columns:118px minmax(260px,1fr) auto auto auto;gap:10px;padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--border)}.method{appearance:none;background:var(--panel2);border:1px solid var(--border);border-radius:8px;color:var(--green);cursor:pointer;font-family:var(--mono);font-weight:800;outline:none;padding:0 12px}.method.write{color:var(--yellow)}.method.delete{color:var(--red)}.method.other{color:var(--blue)}
+    .url,.kv-row input,.editor,.small-input{background:var(--panel2);border:1px solid var(--border);color:var(--text);outline:none;transition:border-color .15s,background .15s}.url{min-height:40px;border-radius:8px;padding:0 14px;font-family:var(--mono);min-width:0}.url:focus,.kv-row input:focus,.editor:focus,.small-input:focus{border-color:var(--accent);background:#202532}
+    .btn{min-height:36px;border:1px solid transparent;border-radius:8px;padding:0 14px;cursor:pointer;font-weight:650;white-space:nowrap;color:var(--text);background:var(--panel2);transition:background .15s,border-color .15s,color .15s,transform .05s,opacity .15s}.btn:hover{background:var(--panel3);border-color:#3a4150}.btn:active{transform:translateY(1px)}.btn:disabled{opacity:.62;cursor:not-allowed;transform:none}.primary{background:var(--accent);color:#fff}.primary:hover{background:var(--accent2);border-color:transparent}.danger:hover{color:var(--red)}
+    .main{min-height:0;display:grid;grid-template-columns:minmax(430px,1fr) minmax(430px,1fr) 300px;background:var(--bg)}.pane{min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}.pane-title{height:42px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--border);font-weight:650}.tabs{flex:0 0 auto;display:flex;gap:2px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto}.tab{color:var(--muted);cursor:pointer;padding:12px 14px 10px;border-bottom:2px solid transparent;user-select:none;white-space:nowrap;font-weight:550}.tab:hover{color:var(--text)}.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+    .tab-body{flex:1 1 auto;min-height:0;overflow:auto;padding:14px 18px}.tab-body[hidden]{display:none}.kv-head,.kv-row{display:grid;grid-template-columns:minmax(120px,1fr) minmax(120px,1fr) 34px;gap:8px;align-items:center}.kv-head{color:var(--muted);font-size:12px;margin-bottom:8px;padding:0 2px}.kv-row{margin-bottom:8px}.kv-row input{height:34px;border-radius:7px;padding:0 10px;font:13px var(--mono);min-width:0}.kv-del{width:34px;height:34px;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}.kv-del:hover{color:var(--red);border-color:var(--border);background:var(--panel2)}
+    .inline-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}.link-btn{border:0;background:transparent;color:var(--blue);cursor:pointer;padding:4px 0;font-size:13px}.link-btn:hover{text-decoration:underline}.hint{color:var(--muted);font-size:12px;line-height:1.65;margin-top:10px}.editor{width:100%;height:calc(100% - 48px);min-height:240px;resize:none;border-radius:8px;padding:12px;font:13px/1.65 var(--mono);tab-size:2}.segmented{display:inline-flex;border:1px solid var(--border);border-radius:8px;background:var(--panel2);overflow:hidden;margin-bottom:10px}.segmented button{border:0;background:transparent;color:var(--muted);cursor:pointer;padding:8px 12px;font-size:13px}.segmented button.active{background:var(--accent);color:#fff}.small-input{width:96px;height:32px;border-radius:7px;padding:0 8px;font:13px var(--mono)}
+    .response-head{flex:0 0 auto;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 18px;background:var(--panel);border-bottom:1px solid var(--border)}.status-wrap{display:flex;align-items:center;gap:10px;min-width:0}.badge{display:inline-flex;align-items:center;min-height:26px;padding:4px 10px;border-radius:7px;font:800 13px var(--mono)}.badge.s2{background:rgba(63,185,80,.15);color:var(--green)}.badge.s3{background:rgba(88,166,255,.15);color:var(--blue)}.badge.s4{background:rgba(210,153,34,.15);color:var(--yellow)}.badge.s5,.badge.err{background:rgba(248,81,73,.15);color:var(--red)}.meta{display:flex;gap:14px;color:var(--muted);font-size:12px;white-space:nowrap}.meta b{color:var(--text);font-weight:650}.response-content{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}.resp{flex:1 1 auto;min-height:0;overflow:auto;margin:0;padding:14px 18px;font:13px/1.65 var(--mono);white-space:pre-wrap;word-break:break-word}.placeholder{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px;color:var(--muted);padding:60px 24px}.placeholder-icon{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;color:var(--accent);border:1px solid var(--border);background:var(--panel);font:20px var(--mono)}
+    .json-key{color:var(--blue)}.json-string{color:#a5d6ff}.json-number{color:#79c0ff}.json-boolean{color:#ffa657}.json-null{color:#ff7b72}.history-pane{min-width:0;min-height:0;display:flex;flex-direction:column;background:var(--panel)}.history-list{flex:1 1 auto;min-height:0;overflow-y:auto}.history-item{border-bottom:1px solid var(--border);padding:10px 14px;cursor:pointer}.history-item:hover{background:var(--panel2)}.history-main{display:flex;align-items:center;gap:8px;min-width:0;margin-bottom:4px}.h-method{flex:0 0 auto;border-radius:5px;background:var(--panel2);color:var(--green);font:800 11px var(--mono);padding:2px 6px}.h-method.write{color:var(--yellow)}.h-method.delete{color:var(--red)}.h-method.other{color:var(--blue)}.h-url{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);font:12px var(--mono)}.h-status{color:var(--muted);font:12px var(--mono);margin-left:auto}.h-time{color:var(--muted);font-size:11px}.empty{color:var(--muted);padding:42px 16px;text-align:center;font-size:13px}.footer{padding:8px 18px;background:var(--panel);border-top:1px solid var(--border);color:var(--muted);font-size:12px;line-height:1.55}.spinner{width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;animation:spin .72s linear infinite;display:inline-block;vertical-align:-2px;margin-right:8px}@keyframes spin{to{transform:rotate(360deg)}}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:#333a47;border-radius:4px}::-webkit-scrollbar-thumb:hover{background:#414a5a}@media(max-width:1180px){.app{min-width:760px}.main{grid-template-columns:minmax(380px,1fr) minmax(380px,1fr)}.history-pane{display:none}.request-bar{grid-template-columns:108px minmax(220px,1fr) auto auto auto}}
+      @media(max-width:760px){
+      html,body{height:auto;min-height:100%;overflow:auto}
+      body{font-size:13px}
+      .app{height:auto;min-height:100vh;min-width:0;display:flex;flex-direction:column}
+      .topbar{align-items:flex-start;flex-direction:column;padding:12px;gap:12px}
+      .brand{font-size:15px}.top-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+      .request-bar{grid-template-columns:92px minmax(0,1fr);padding:12px;gap:8px}
+      .method,.url{height:40px}#sendBtn{grid-column:1 / -1}#clearResponseBtn,#resetBtn{min-width:0}
+      .main{display:flex;flex-direction:column;min-height:0}.pane{border-right:0;border-bottom:1px solid var(--border);min-height:0}
+      .pane:first-child{height:auto;max-height:none}.pane:nth-child(2){height:58vh;min-height:360px}
+      .history-pane{display:flex;max-height:260px;border-bottom:0}.tabs{padding:0 12px}.tab{padding:11px 12px 9px;font-size:13px}
+      .pane-title,.response-head{padding-left:12px;padding-right:12px}.tab-body{padding:12px}.kv-head,.kv-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 34px}
+      .editor{height:240px;min-height:240px}.response-head{align-items:flex-start;flex-direction:column}.meta{gap:10px;flex-wrap:wrap}#copyResponseBtn{width:100%}.resp{padding:12px;font-size:12px}.footer{padding:10px 12px}
+    }
+    @media(max-width:480px){
+      .request-bar{grid-template-columns:1fr}.method,.url,#sendBtn,#clearResponseBtn,#resetBtn{grid-column:1;width:100%}.top-actions{grid-template-columns:1fr}
+      .kv-head{display:none}.kv-row{grid-template-columns:1fr 34px;gap:8px}.kv-row input:first-child{grid-column:1 / -1}
+      .segmented{display:grid;grid-template-columns:1fr 1fr;width:100%}.segmented button{min-height:36px}.pane:nth-child(2){height:62vh;min-height:340px}
+    }  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="mark"></span><span>Postman API 调试工具</span></div>
+      <div class="top-actions"><button class="btn" id="importCurlBtn">粘贴 curl</button><button class="btn" id="sampleBtn">示例</button></div>
+    </header>
+    <div class="curl-modal-overlay" id="curlModalOverlay" hidden>
+      <div class="curl-modal" role="dialog" aria-modal="true" aria-labelledby="curlModalTitle">
+        <div class="curl-modal-title" id="curlModalTitle">粘贴 curl</div>
+        <div class="curl-modal-desc">把 curl 命令贴到下面，页面会自动解析方法、URL、参数、请求头和请求体。</div>
+        <textarea class="curl-editor" id="curlInput" placeholder="curl 'https://api.example.com/users?x=1' -H 'Accept: application/json'"></textarea>
+        <div class="curl-modal-actions">
+          <button class="btn" id="curlModalClose" type="button">取消</button>
+          <button class="btn primary" id="curlModalImport" type="button">解析并导入</button>
+        </div>
+      </div>
+    </div>
+    <section class="request-bar">
+      <select class="method" id="method"><option value="GET">GET</option><option value="POST">POST</option><option value="PUT">PUT</option><option value="PATCH">PATCH</option><option value="DELETE">DELETE</option><option value="HEAD">HEAD</option><option value="OPTIONS">OPTIONS</option></select>
+      <input class="url" id="url" type="text" placeholder="https://api.example.com/v1/users" spellcheck="false" />
+      <button class="btn primary" id="sendBtn">发送</button><button class="btn" id="clearResponseBtn">清空响应</button><button class="btn danger" id="resetBtn">重置</button>
+    </section>
+    <main class="main">
+      <section class="pane">
+        <div class="pane-title"><span>请求</span><span class="hint" style="margin:0">Ctrl + Enter 发送</span></div>
+        <nav class="tabs"><div class="tab active" data-tab="params">Params</div><div class="tab" data-tab="headers">Headers</div><div class="tab" data-tab="body">Body</div><div class="tab" data-tab="settings">Settings</div></nav>
+        <div class="tab-body" id="tab-params"><div class="kv-head"><span>Key</span><span>Value</span><span></span></div><div id="paramsList"></div><button class="link-btn" id="addParamBtn">+ 添加查询参数</button><div class="hint">查询参数会自动拼接到 URL 后面，已存在的 URL 查询字符串会保留。</div></div>
+        <div class="tab-body" id="tab-headers" hidden><div class="kv-head"><span>Header</span><span>Value</span><span></span></div><div id="headersList"></div><button class="link-btn" id="addHeaderBtn">+ 添加请求头</button><div class="hint">浏览器会限制部分请求头，例如 Host、Origin、Referer、User-Agent、Cookie。</div></div>
+        <div class="tab-body" id="tab-body" hidden><div class="segmented" id="bodyType"><button data-type="none" class="active">none</button><button data-type="json">JSON</button><button data-type="text">Text</button><button data-type="form">Form</button></div><textarea class="editor" id="bodyEditor" placeholder='{"name":"demo"}' spellcheck="false"></textarea><div class="hint" id="bodyHint">不发送请求体。GET 和 HEAD 请求会忽略 Body。</div></div>
+        <div class="tab-body" id="tab-settings" hidden><div class="inline-row"><label for="timeoutInput">超时毫秒</label><input class="small-input" id="timeoutInput" type="number" min="100" step="100" value="15000" /></div><div class="inline-row"><label><input id="followRedirects" type="checkbox" checked /> 跟随重定向</label></div><div class="hint">fetch 在浏览器环境下运行，跨域请求是否成功取决于目标 API 的 CORS 响应头。</div></div>
+      </section>
+      <section class="pane">
+        <div class="response-head"><div class="status-wrap"><span class="badge" id="statusBadge">未发送</span><div class="meta"><span>耗时 <b id="timeText">-</b></span><span>大小 <b id="sizeText">-</b></span></div></div><button class="btn" id="copyResponseBtn">复制响应</button></div>
+        <nav class="tabs"><div class="tab active" data-resp="body">Body</div><div class="tab" data-resp="headers">Headers</div><div class="tab" data-resp="preview">Preview</div></nav>
+        <div class="response-content"><pre class="resp" id="respBody" hidden></pre><div class="placeholder" id="respPlaceholder"><div class="placeholder-icon">→</div><div>输入 URL 后点击发送开始调试接口</div><div style="font-size:12px">支持 GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS</div></div></div>
+      </section>
+      <aside class="history-pane"><div class="pane-title"><span>请求历史</span><button class="link-btn" id="clearHistoryBtn">清空</button></div><div class="history-list" id="historyList"></div></aside>
+    </main>
+    <footer class="footer">提示：此工具基于浏览器 fetch。若目标 API 未返回 <code>Access-Control-Allow-Origin</code>，请求会被浏览器拦截；需要通过同源接口、后端代理或目标服务开放 CORS 调试。</footer>
+  </div>
+  <script>
+  (function(){
+    'use strict';
+    const $=id=>document.getElementById(id),methodEl=$('method'),urlEl=$('url'),sendBtn=$('sendBtn'),clearResponseBtn=$('clearResponseBtn'),resetBtn=$('resetBtn'),importCurlBtn=$('importCurlBtn'),sampleBtn=$('sampleBtn'),curlModalOverlay=$('curlModalOverlay'),curlInput=$('curlInput'),curlModalClose=$('curlModalClose'),curlModalImport=$('curlModalImport'),paramsList=$('paramsList'),headersList=$('headersList'),addParamBtn=$('addParamBtn'),addHeaderBtn=$('addHeaderBtn'),bodyType=$('bodyType'),bodyEditor=$('bodyEditor'),bodyHint=$('bodyHint'),timeoutInput=$('timeoutInput'),followRedirects=$('followRedirects'),statusBadge=$('statusBadge'),timeText=$('timeText'),sizeText=$('sizeText'),respBody=$('respBody'),respPlaceholder=$('respPlaceholder'),copyResponseBtn=$('copyResponseBtn'),historyList=$('historyList'),clearHistoryBtn=$('clearHistoryBtn');
+    const HISTORY_KEY='demo_postman_history_v2',MAX_HISTORY=40,STATUS_TEXT={200:'OK',201:'Created',202:'Accepted',204:'No Content',301:'Moved Permanently',302:'Found',304:'Not Modified',400:'Bad Request',401:'Unauthorized',403:'Forbidden',404:'Not Found',405:'Method Not Allowed',408:'Request Timeout',409:'Conflict',415:'Unsupported Media Type',422:'Unprocessable Entity',429:'Too Many Requests',500:'Internal Server Error',501:'Not Implemented',502:'Bad Gateway',503:'Service Unavailable',504:'Gateway Timeout'};
+    let lastBodyText='',lastHeadersText='',lastPreviewText='',currentResponseTab='body',activeController=null;
+    function escapeHtml(v){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;')}
+    function formatBytes(b){if(b===0)return'0 B';if(!b)return'-';if(b<1024)return b+' B';if(b<1048576)return(b/1024).toFixed(1)+' KB';return(b/1048576).toFixed(2)+' MB'}
+    function methodKind(m){if(m==='DELETE')return'delete';if(m==='GET')return'read';if(m==='HEAD'||m==='OPTIONS')return'other';return'write'}
+    function refreshMethodStyle(){methodEl.className='method '+methodKind(methodEl.value)}
+    function createKvRow(container,key,value){const row=document.createElement('div');row.className='kv-row';const k=document.createElement('input');k.placeholder='Key';k.value=key||'';k.spellcheck=false;const v=document.createElement('input');v.placeholder='Value';v.value=value||'';v.spellcheck=false;const d=document.createElement('button');d.className='kv-del';d.type='button';d.title='删除';d.textContent='×';d.addEventListener('click',()=>row.remove());row.append(k,v,d);container.appendChild(row)}
+    function readKvList(container){return Array.from(container.querySelectorAll('.kv-row')).map(row=>{const inputs=row.querySelectorAll('input');return{key:inputs[0].value.trim(),value:inputs[1].value}}).filter(x=>x.key)}
+    function setKvList(container,items){container.innerHTML='';(items&&items.length?items:[{key:'',value:''}]).forEach(x=>createKvRow(container,x.key,x.value))}
+    function safeDecode(v){try{return decodeURIComponent(v.replace(/\+/g,' '))}catch(e){return v}}
+    function splitUrlAndParams(raw){const hashIndex=raw.indexOf('#'),hash=hashIndex===-1?'':raw.slice(hashIndex),withoutHash=hashIndex===-1?raw:raw.slice(0,hashIndex),queryIndex=withoutHash.indexOf('?');if(queryIndex===-1)return{baseUrl:raw,params:[]};const params=withoutHash.slice(queryIndex+1).split('&').filter(Boolean).map(pair=>{const i=pair.indexOf('='),k=i===-1?pair:pair.slice(0,i),v=i===-1?'':pair.slice(i+1);return{key:safeDecode(k),value:safeDecode(v)}});return{baseUrl:withoutHash.slice(0,queryIndex)+hash,params}}
+    function normalizeCurlText(text){return String(text||'').replace(/\r\n?/g,'\n').trim().replace(/\\\n/g,' ')}
+    function tokenizeCurl(command){const tokens=[],re=/(?:[^\s"']+|"(?:\\.|[^"])*"|'(?:\\.|[^'])*')+/g;let match;while((match=re.exec(command))){tokens.push(match[0])}return tokens}
+    function stripQuotes(value){const v=String(value||'').trim();if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'")))return v.slice(1,-1);return v}
+    function parseHeaderLine(line){const idx=line.indexOf(':');if(idx===-1)return null;return{key:line.slice(0,idx).trim(),value:line.slice(idx+1).trim()}}
+    function parseCurl(command){
+      const result={method:'GET',url:'',headers:[],body:'',bodyType:'none'};
+      const tokens=tokenizeCurl(normalizeCurlText(command));
+      for(let i=0;i<tokens.length;i++){
+        const token=stripQuotes(tokens[i]);
+        if(!token||token==='curl')continue;
+        if(token==='-X'||token==='--request'){result.method=stripQuotes(tokens[++i]||'GET').toUpperCase();continue}
+        if(token==='-H'||token==='--header'){const header=parseHeaderLine(stripQuotes(tokens[++i]||''));if(header)result.headers.push(header);continue}
+        if(token==='--url'){result.url=stripQuotes(tokens[++i]||'');continue}
+        if(token==='-d'||token==='--data'||token==='--data-raw'||token==='--data-binary'){result.body=stripQuotes(tokens[++i]||'');result.bodyType=/^\s*[\[{]/.test(result.body)?'json':'text';if(result.method==='GET')result.method='POST';continue}
+        if(token==='--data-urlencode'){const data=stripQuotes(tokens[++i]||'');if(data.includes('=')){const pair=data.split('=');result.headers.push({key:'Content-Type',value:'application/x-www-form-urlencoded;charset=UTF-8'});result.bodyType='form';result.body=data}} 
+        if(token==='-u'||token==='--user'){i++;continue}
+        if(token.startsWith('-'))continue;
+        if(!result.url)result.url=token;
+      }
+      if(result.body && result.bodyType==='none'){result.bodyType='text'}
+      return result.url?result:null;
+    }
+    function buildFullUrl(){let raw=urlEl.value.trim();if(!raw)return'';const hashIndex=raw.indexOf('#'),hash=hashIndex===-1?'':raw.slice(hashIndex);if(hashIndex!==-1)raw=raw.slice(0,hashIndex);const params=readKvList(paramsList);if(!params.length)return raw+hash;const query=params.map(x=>encodeURIComponent(x.key)+'='+encodeURIComponent(x.value)).join('&');return raw+(raw.includes('?')?'&':'?')+query+hash}
+    function activeBodyType(){const b=bodyType.querySelector('button.active');return b?b.dataset.type:'none'}
+    function setActiveBodyType(type){bodyType.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.type===type));bodyHint.textContent={none:'不发送请求体。GET 和 HEAD 请求会忽略 Body。',json:'按原文发送 JSON，并自动添加 Content-Type: application/json。',text:'按纯文本发送，并自动添加 Content-Type: text/plain。',form:'按 x-www-form-urlencoded 发送，请输入 name=value&enabled=true。'}[type]||''}
+    function requestBody(method){const type=activeBodyType(),raw=bodyEditor.value;if(method==='GET'||method==='HEAD'||type==='none'||!raw.trim())return{body:undefined,headers:{}};if(type==='json')return{body:raw,headers:{'Content-Type':'application/json'}};if(type==='text')return{body:raw,headers:{'Content-Type':'text/plain;charset=UTF-8'}};if(type==='form')return{body:raw,headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}};return{body:undefined,headers:{}}}
+    function tryFormatJson(text){try{return JSON.stringify(JSON.parse(text),null,2)}catch(e){return null}}
+    function highlightJson(text){return escapeHtml(text).replace(/("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*")(\s*:)?|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,(m,str,colon,bool)=>{if(str&&colon)return'<span class="json-key">'+str+'</span>'+colon;if(str)return'<span class="json-string">'+str+'</span>';if(bool)return'<span class="json-boolean">'+bool+'</span>';if(m==='null')return'<span class="json-null">null</span>';return'<span class="json-number">'+m+'</span>'})}
+    function setStatus(code,text){if(code==null){statusBadge.className='badge err';statusBadge.textContent=text||'请求失败';return}const klass=code<300?'s2':code<400?'s3':code<500?'s4':'s5';statusBadge.className='badge '+klass;statusBadge.textContent=code+' '+(STATUS_TEXT[code]||text||'')}
+    function showSurface(){respPlaceholder.style.display='none';respBody.hidden=false}
+    function renderResponseTab(name){currentResponseTab=name;document.querySelectorAll('[data-resp]').forEach(t=>t.classList.toggle('active',t.dataset.resp===name));showSurface();if(name==='headers'){respBody.textContent=lastHeadersText||'(无可读取响应头)';return}if(name==='preview'){respBody.innerHTML=lastPreviewText||'<span style="color:var(--muted)">(暂无预览)</span>';return}if(!lastBodyText){respBody.textContent='(空响应体)';return}const formatted=tryFormatJson(lastBodyText);if(formatted!==null)respBody.innerHTML=highlightJson(formatted);else respBody.textContent=lastBodyText}
+    function makePreview(contentType,text){if(!text)return'';const lower=(contentType||'').toLowerCase(),formatted=tryFormatJson(text);if(lower.includes('text/html'))return escapeHtml(text);if(lower.includes('application/json')||formatted!==null)return highlightJson(formatted||text);if(lower.startsWith('image/'))return'<span style="color:var(--muted)">已收到图片响应，但此工具未直接渲染二进制图片。</span>';return escapeHtml(text.slice(0,12000))}
+    function loadHistory(){try{return JSON.parse(localStorage.getItem(HISTORY_KEY))||[]}catch(e){return[]}}
+    function saveHistory(entry){const list=loadHistory();list.unshift(entry);if(list.length>MAX_HISTORY)list.length=MAX_HISTORY;try{localStorage.setItem(HISTORY_KEY,JSON.stringify(list))}catch(e){}renderHistory()}
+    function renderHistory(){const list=loadHistory();historyList.innerHTML='';if(!list.length){historyList.innerHTML='<div class="empty">暂无历史记录</div>';return}list.forEach(item=>{const row=document.createElement('div'),kind=methodKind(item.method);row.className='history-item';row.innerHTML='<div class="history-main"><span class="h-method '+kind+'">'+escapeHtml(item.method)+'</span><span class="h-url" title="'+escapeHtml(item.url)+'">'+escapeHtml(item.url)+'</span><span class="h-status">'+escapeHtml(item.error?'ERR':String(item.status||'-'))+'</span></div><div class="h-time">'+escapeHtml(item.timeLabel||'')+' · '+escapeHtml(String(item.duration||'-'))+' ms</div>';row.addEventListener('click',()=>restoreRequest(item));historyList.appendChild(row)})}
+    function restoreRequest(item){methodEl.value=item.method||'GET';refreshMethodStyle();urlEl.value=item.baseUrl||item.url||'';setKvList(paramsList,item.params||[]);setKvList(headersList,item.headers||[]);setActiveBodyType(item.bodyType||'none');bodyEditor.value=item.body||'';activateTab('params')}
+    function activateTab(name){document.querySelectorAll('[data-tab]').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));document.querySelectorAll('.tab-body').forEach(b=>{b.hidden=b.id!=='tab-'+name})}
+    function clearResponse(){activeController=null;statusBadge.className='badge';statusBadge.textContent='未发送';timeText.textContent='-';sizeText.textContent='-';lastBodyText='';lastHeadersText='';lastPreviewText='';respBody.hidden=true;respBody.textContent='';respPlaceholder.style.display='flex';document.querySelectorAll('[data-resp]').forEach(t=>t.classList.toggle('active',t.dataset.resp==='body'));currentResponseTab='body'}
+    function resetAll(){methodEl.value='GET';refreshMethodStyle();urlEl.value='';setKvList(paramsList,[]);setKvList(headersList,[]);setActiveBodyType('none');bodyEditor.value='';timeoutInput.value='15000';followRedirects.checked=true;clearResponse();activateTab('params')}
+    async function sendRequest(){if(activeController){activeController.abort();return}const fullUrl=buildFullUrl();if(!fullUrl){urlEl.focus();urlEl.style.borderColor='var(--red)';setTimeout(()=>{urlEl.style.borderColor=''},1300);return}const method=methodEl.value,headerRows=readKvList(headersList),params=readKvList(paramsList),bodyInfo=requestBody(method),headers={};headerRows.forEach(x=>headers[x.key]=x.value);Object.assign(headers,bodyInfo.headers);const timeout=Math.max(100,Number(timeoutInput.value)||15000),controller=new AbortController();activeController=controller;const timeoutId=setTimeout(()=>controller.abort(),timeout),options={method,headers,signal:controller.signal,redirect:followRedirects.checked?'follow':'manual'};if(bodyInfo.body!==undefined)options.body=bodyInfo.body;sendBtn.innerHTML='<span class="spinner"></span>取消';showSurface();respBody.textContent='请求发送中...';setStatus(0,'请求中');statusBadge.className='badge s3';timeText.textContent='-';sizeText.textContent='-';const started=performance.now(),entry={method,url:fullUrl,baseUrl:urlEl.value.trim(),params,headers:headerRows,bodyType:activeBodyType(),body:bodyEditor.value,status:0,duration:0,error:false,timeLabel:new Date().toLocaleString()};try{const response=await fetch(fullUrl,options),duration=Math.round(performance.now()-started),text=method==='HEAD'?'':await response.text(),headersText=[];response.headers.forEach((value,key)=>headersText.push(key+': '+value));const contentType=response.headers.get('content-type')||'';lastBodyText=text;lastHeadersText=headersText.join('\n');lastPreviewText=makePreview(contentType,text);setStatus(response.status,response.statusText);timeText.textContent=duration+' ms';sizeText.textContent=formatBytes(new Blob([text]).size);renderResponseTab(currentResponseTab||'body');entry.status=response.status;entry.duration=duration}catch(err){const duration=Math.round(performance.now()-started),aborted=err&&err.name==='AbortError',message=aborted?'请求已取消或超时。':(err&&err.message?err.message:String(err)),corsHint=!aborted&&/failed to fetch|cors|network/i.test(message)?'\n\n可能原因：目标接口没有开放 CORS，或网络请求被浏览器拦截。':'';lastBodyText='请求失败：'+message+corsHint;lastHeadersText='';lastPreviewText='';setStatus(null,aborted?'已取消':'请求失败');timeText.textContent=duration+' ms';sizeText.textContent='-';renderResponseTab('body');entry.error=true;entry.duration=duration}finally{clearTimeout(timeoutId);activeController=null;sendBtn.textContent='发送';saveHistory(entry)}}
+    async function copyText(text){if(!text)return;try{await navigator.clipboard.writeText(text)}catch(e){const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove()}}
+    function openCurlModal(){if(!curlModalOverlay||!curlInput)return;curlInput.value='';curlModalOverlay.hidden=false;setTimeout(()=>curlInput.focus(),0)}
+    function closeCurlModal(){if(curlModalOverlay)curlModalOverlay.hidden=true}
+    function applyCurlText(raw){
+      const parsed=parseCurl(raw);
+      if(!parsed){alert('没有识别到有效的 curl 命令。');return false}
+      const parts=splitUrlAndParams(parsed.url);
+      methodEl.value=parsed.method;
+      refreshMethodStyle();
+      urlEl.value=parts.baseUrl;
+      setKvList(paramsList,parts.params);
+      setKvList(headersList,parsed.headers);
+      setActiveBodyType(parsed.bodyType);
+      bodyEditor.value=parsed.body;
+      activateTab('params');
+      closeCurlModal();
+      return true;
+    }
+    function fillSample(){methodEl.value='GET';refreshMethodStyle();urlEl.value='https://jsonplaceholder.typicode.com/posts/1';setKvList(paramsList,[]);setKvList(headersList,[{key:'Accept',value:'application/json'}]);setActiveBodyType('none');bodyEditor.value='';activateTab('headers')}
+    sendBtn.addEventListener('click',sendRequest);
+    clearResponseBtn.addEventListener('click',clearResponse);
+    resetBtn.addEventListener('click',resetAll);
+    addParamBtn.addEventListener('click',()=>createKvRow(paramsList,'',''));
+    addHeaderBtn.addEventListener('click',()=>createKvRow(headersList,'',''));
+    methodEl.addEventListener('change',refreshMethodStyle);
+    importCurlBtn.addEventListener('click',openCurlModal);
+    sampleBtn.addEventListener('click',fillSample);
+    if(curlModalClose)curlModalClose.addEventListener('click',closeCurlModal);
+    if(curlModalImport)curlModalImport.addEventListener('click',()=>applyCurlText(curlInput.value));
+    if(curlInput){
+      curlInput.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')applyCurlText(curlInput.value)});
+    }
+    if(curlModalOverlay){
+      curlModalOverlay.addEventListener('click',e=>{if(e.target===curlModalOverlay)closeCurlModal()});
+    }
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!curlModalOverlay.hidden)closeCurlModal();if((e.ctrlKey||e.metaKey)&&e.key==='Enter'&&curlModalOverlay.hidden)sendRequest()});
+    document.querySelectorAll('[data-tab]').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.tab)));
+    document.querySelectorAll('[data-resp]').forEach(t=>t.addEventListener('click',()=>renderResponseTab(t.dataset.resp)));
+    bodyType.addEventListener('click',e=>{const btn=e.target.closest('button');if(btn)setActiveBodyType(btn.dataset.type)});
+    copyResponseBtn.addEventListener('click',()=>copyText(currentResponseTab==='headers'?lastHeadersText:lastBodyText));
+    clearHistoryBtn.addEventListener('click',()=>{try{localStorage.removeItem(HISTORY_KEY)}catch(e){}renderHistory()});
+    urlEl.addEventListener('blur',()=>{const raw=urlEl.value.trim();if(!raw||!raw.includes('?'))return;const parts=splitUrlAndParams(raw);if(!parts.params.length)return;urlEl.value=parts.baseUrl;const existing=readKvList(paramsList).filter(x=>x.key||x.value);setKvList(paramsList,existing.concat(parts.params))});
+    refreshMethodStyle();setKvList(paramsList,[]);setKvList(headersList,[{key:'Accept',value:'application/json'}]);setActiveBodyType('none');renderHistory();
+  })();
+  </script>
+</body>
+</html>
+

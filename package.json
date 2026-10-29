@@ -1,20 +1,43 @@
 {
   "name": "lan-sharebox",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "局域网跨设备文本/文件传输工具 — 电脑手机互传，扫码即用",
   "main": "server.js",
+  "bin": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "build:icon": "node scripts/make-icon.js",
+    "build:win": "npm run build:icon && pkg . --targets node22-win-x64 --output dist/ShareBox.exe",
+    "build:mac": "npm run build:icon && pkg . --targets node22-macos-x64,node22-macos-arm64 --output dist/ShareBox"
   },
   "keywords": ["lan", "share", "file-transfer", "clipboard", "qrcode"],
   "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*",
+      "scripts/tray.ps1",
+      "assets/app.ico"
+    ],
+    "targets": [
+      "node22-win-x64",
+      "node22-macos-x64",
+      "node22-macos-arm64"
+    ],
+    "outputPath": "dist"
+  },
   "dependencies": {
     "address": "^2.0.3",
-    "express": "^4.21.0",
-    "multer": "^1.4.5-lts.1",
+    "express": "^4.21.2",
+    "multer": "^2.0.2",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.5",
-    "uuid": "^10.0.0"
+    "socket.io": "^4.8.1",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.1.1"
   }
 }

@@ -105,6 +105,26 @@ body {
   gap: 10px;
 }
 
+.tool-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.tool-link:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ========== 清理菜单（仅本机） ========== */
 .cleanup-wrap {
   position: relative;
@@ -882,7 +902,12 @@ body {
     display: none;
   }
 
-  .cleanup-btn {
+  .tool-link-text {
+    display: none;
+  }
+
+  .cleanup-btn,
+  .tool-link {
     padding: 5px 10px;
   }
 

@@ -1,0 +1,102 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 生成图标
+        run: node scripts/make-icon.js
+
+      - name: 打包单文件 exe
+        run: npx @yao-pkg/pkg . --targets node22-win-x64 --output dist/ShareBox.exe
+
+      - name: 写入 exe 图标与版本信息
+        continue-on-error: true
+        run: npx --yes rcedit@4 dist/ShareBox.exe --set-icon assets/app.ico --set-file-version "1.1.0" --set-product-version "1.1.0"
+
+      - name: 生成安装包 (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "ISCC.exe" }
+          & $iscc "installer\setup.iss"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShareBox-Windows
+          path: |
+            dist/ShareBox.exe
+            dist/*.exe
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/ShareBox.exe
+            dist/LAN-ShareBox-Setup.exe
+
+  build-macos:
+    name: macOS (arm64 + x64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 生成图标
+        run: node scripts/make-icon.js
+
+      - name: 打包二进制 (arm64 / x64)
+        run: npx @yao-pkg/pkg . --targets node22-macos-arm64,node22-macos-x64 --output dist/ShareBox
+
+      - name: 打包成 .app
+        run: |
+          node scripts/make-mac-app.js dist/ShareBox-macos-arm64 "dist/LAN ShareBox-arm64.app" assets/app.icns
+          node scripts/make-mac-app.js dist/ShareBox-macos-x64 "dist/LAN ShareBox-x64.app" assets/app.icns
+
+      - name: 临时签名（Apple Silicon 要求二进制必须签名才能运行）
+        run: |
+          codesign --force --deep --sign - "dist/LAN ShareBox-arm64.app" || true
+          codesign --force --deep --sign - "dist/LAN ShareBox-x64.app" || true
+
+      - name: 生成 dmg
+        run: |
+          hdiutil create -volname "LAN ShareBox (arm64)" -srcfolder "dist/LAN ShareBox-arm64.app" -ov -format UDZO "dist/LAN-ShareBox-arm64.dmg"
+          hdiutil create -volname "LAN ShareBox (x64)" -srcfolder "dist/LAN ShareBox-x64.app" -ov -format UDZO "dist/LAN-ShareBox-x64.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ShareBox-macOS
+          path: dist/*.dmg
+
+      - name: 发布 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/LAN-ShareBox-arm64.dmg
+            dist/LAN-ShareBox-x64.dmg

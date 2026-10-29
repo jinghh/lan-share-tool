@@ -8,6 +8,92 @@ const QRCode = require('qrcode');
 const address = require('address');
 const { v4: uuidv4 } = require('uuid');
 const { exec } = require('child_process');
+const { prepareDataDir } = require('./src/data-dir');
+const { startTray } = require('./src/tray');
+const autostart = require('./src/autostart');
+
+// ========== 命令行参数 ==========
+function parseArgs(argv) {
+  const result = {
+    dataDir: '',
+    port: 0,
+    tray: false,
+    noOpen: false,
+    autostartInstall: false,
+    autostartRemove: false,
+    help: false,
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    switch (argv[i]) {
+      case '--data-dir':
+        i += 1;
+        result.dataDir = argv[i] || '';
+        break;
+      case '--port':
+        i += 1;
+        result.port = Number.parseInt(argv[i], 10) || 0;
+        break;
+      case '--tray':
+        result.tray = true;
+        break;
+      case '--no-open':
+        result.noOpen = true;
+        break;
+      case '--autostart-install':
+        result.autostartInstall = true;
+        break;
+      case '--autostart-remove':
+        result.autostartRemove = true;
+        break;
+      case '--help':
+      case '-h':
+        result.help = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return result;
+}
+
+function printUsage() {
+  console.log([
+    '',
+    '  LAN ShareBox —— 局域网文本 / 文件互传',
+    '',
+    '  用法: sharebox [选项]',
+    '',
+    '    --port <number>      指定端口（默认 3456，占用时自动顺延）',
+    '    --data-dir <path>    指定数据目录（默认使用系统用户数据目录）',
+    '    --tray               启动后驻留系统托盘（仅 Windows）',
+    '    --no-open            启动后不自动打开浏览器',
+    '    --autostart-install  设置开机自启',
+    '    --autostart-remove   取消开机自启',
+    '    -h, --help           显示帮助',
+    '',
+  ].join('\n'));
+}
+
+const CLI_ARGS = parseArgs(process.argv.slice(2));
+
+if (CLI_ARGS.help) {
+  printUsage();
+  process.exit(0);
+}
+
+if (CLI_ARGS.autostartInstall) {
+  const spec = autostart.install();
+  console.log(`✅ 已设置开机自启: ${[spec.file].concat(spec.args).join(' ')}`);
+  process.exit(0);
+}
+
+if (CLI_ARGS.autostartRemove) {
+  autostart.remove();
+  console.log('✅ 已取消开机自启');
+  process.exit(0);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -15,14 +101,23 @@ const io = new Server(server, {
   maxHttpBufferSize: 100 * 1024 * 1024, // 100MB for Socket.IO
 });
 
-let PORT = process.env.PORT || 3456;
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+let PORT = CLI_ARGS.port || process.env.PORT || 3456;
+
+// ========== 数据目录 ==========
+// 打包成 exe / .app 后安装目录可能只读，数据统一放到系统用户数据目录
+const {
+  dataDir: DATA_DIR,
+  uploadsDir: UPLOADS_DIR,
+  migration,
+} = prepareDataDir(CLI_ARGS.dataDir);
+process.env.SHAREBOX_DATA_DIR = DATA_DIR; // 托盘「打开数据目录」菜单使用
+
 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1GB
 const MAX_MESSAGES = 50;
 
-// 确保 uploads 目录存在
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// 旧版本把数据放在运行目录的 uploads/ 下，升级后一次性搬过来
+if (migration) {
+  console.log(`📦 已迁移 ${migration.moved} 个历史文件: ${migration.from} → ${migration.to}`);
 }
 
 // ========== 本机判断（用于「清理」权限） ==========
@@ -358,6 +453,38 @@ io.on('connection', (socket) => {
   });
 });
 
+// ========== 优雅退出 ==========
+let trayHandle = null;
+
+function shutdown(code) {
+  if (trayHandle) {
+    try {
+      trayHandle.dispose();
+    } catch (e) {
+      // 托盘进程已退出时忽略
+    }
+    trayHandle = null;
+  }
+  process.exit(code);
+}
+
+process.on('SIGINT', () => shutdown(0));
+process.on('SIGTERM', () => shutdown(0));
+
+function openBrowser(url) {
+  const platform = process.platform;
+  const cmd = platform === 'win32'
+    ? `start "" "${url}"`
+    : platform === 'darwin'
+      ? `open "${url}"`
+      : `xdg-open "${url}"`;
+  exec(cmd, (err) => {
+    if (err) {
+      console.log('  ⚠️  无法自动打开浏览器，请手动访问上面的地址');
+    }
+  });
+}
+
 // ========== 启动服务（端口自动切换） ==========
 let startAttempted = false;
 
@@ -388,25 +515,32 @@ function startServer(port) {
     console.log('═══════════════════════════════════════════');
     console.log(`  本地访问: ${localURL}`);
     console.log(`  局域网:   ${lanURL}`);
+    console.log(`  数据目录: ${DATA_DIR}`);
     console.log('═══════════════════════════════════════════');
     console.log('');
     console.log('  手机扫描桌面端页面上的二维码即可连接');
     console.log('');
 
-    // 自动打开浏览器（仅首次）
+    // 首次启动：自动打开浏览器 + 按需驻留托盘
     if (!startAttempted) {
       startAttempted = true;
-      const platform = process.platform;
-      const cmd = platform === 'win32'
-        ? `start "" "${localURL}"`
-        : platform === 'darwin'
-          ? `open "${localURL}"`
-          : `xdg-open "${localURL}"`;
-      exec(cmd, (err) => {
-        if (err) {
-          console.log('  ⚠️  无法自动打开浏览器，请手动访问上面的地址');
-        }
-      });
+
+      if (CLI_ARGS.noOpen) {
+        console.log('  已跳过自动打开浏览器（--no-open）');
+      } else {
+        openBrowser(localURL);
+      }
+
+      if (CLI_ARGS.tray) {
+        startTray({ url: localURL, onQuit: () => shutdown(0) }).then((handle) => {
+          if (handle) {
+            trayHandle = handle;
+            console.log('  已驻留系统托盘：右键托盘图标可打开页面 / 打开数据目录 / 退出');
+          } else {
+            console.log('  ⚠️  当前环境不支持托盘，已按普通方式运行');
+          }
+        });
+      }
     }
   });
 }
