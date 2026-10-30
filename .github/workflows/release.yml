@@ -29,9 +29,9 @@ jobs:
       - name: 打包单文件 exe
         run: npx @yao-pkg/pkg . --targets node22-win-x64 --output dist/ShareBox.exe
 
-      - name: 写入 exe 图标与版本信息
-        continue-on-error: true
-        run: npx --yes rcedit@4 dist/ShareBox.exe --set-icon assets/app.ico --set-file-version "1.1.3" --set-product-version "1.1.3"
+      # 注意：不要用 rcedit 给 pkg 产物写图标/版本——它会改写 PE 资源，
+      # 导致 pkg 追加的 payload 校验失败（运行时报 Pkg: Error reading from file）。
+      # pkg 自身也没有 --icon 参数，因此 exe 保持 Node 默认图标，功能不受影响。
 
       # Windows 只发布免安装单文件 exe。Inno Setup 在 CI 上编译失败且拿不到
       # 构建日志（job 日志需 admin 权限），已放弃安装包方案；installer/setup.iss
