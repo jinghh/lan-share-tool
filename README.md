@@ -10,7 +10,7 @@
 
 - 📷 **扫码即连** — 桌面端自动生成局域网地址二维码，手机一扫即可打开，无需手动输入网址
 - 💬 **文本消息** — 实时同步文本内容，回车即发，适合在手机和电脑间复制粘贴长文本、链接、验证码
-- 📎 **文件传输** — 支持点击选择或**拖拽上传**，上传后局域网内所有设备均可下载，单文件最大 100MB
+- 📎 **文件传输** — 支持点击选择或**拖拽上传**，上传后局域网内所有设备均可下载，单文件最大 1GB
 - 📱 **在线设备列表** — 实时显示当前接入的设备，自动感知设备上线 / 离线
 - 🔄 **实时同步** — 基于 Socket.IO，消息与文件变动在所有设备间即时推送
 - 🖥️ **开箱即用** — 启动后自动打开浏览器；端口被占用时自动切换到下一个可用端口
@@ -43,19 +43,20 @@
 
 ## 🚀 快速开始
 
-### 方式一：下载安装包，双击即用（推荐）
+### 方式一：下载可执行文件，双击即用（推荐）
 
 到 [Releases](../../releases) 下载对应系统的文件，**无需安装 Node.js、无需 npm install**：
 
 | 系统 | 文件 | 说明 |
 | --- | --- | --- |
-| Windows x64 | `LAN-ShareBox-Setup.exe` | 双击安装，创建开始菜单快捷方式，可勾选开机自启 |
-| Windows x64 | `ShareBox.exe` | 免安装单文件版，双击直接运行 |
+| Windows x64 | `ShareBox.exe` | 免安装单文件，双击直接运行 |
 | macOS（Apple 芯片） | `LAN-ShareBox-arm64.dmg` | 打开后把 App 拖进 Applications |
 | macOS（Intel） | `LAN-ShareBox-x64.dmg` | 同上 |
+| macOS 备用 | `LAN-ShareBox-*.zip` | dmg 打不开时用，解压后同样是 App |
 
 > ⚠️ Windows 首次运行会弹出防火墙提示，**必须点「允许访问」**，否则手机连不上。
 > ⚠️ macOS 未做开发者签名，首次打开需 **右键 → 打开** 绕一次（Apple Gatekeeper 规则，无开发者账号时无解）。
+> 💡 Windows 免安装版没有安装程序，想要开机自启时手动执行一次 `ShareBox.exe --autostart-install` 即可。
 
 ### 方式二：从源码运行
 
@@ -160,8 +161,8 @@ myShareBox/
 │   ├── make-icon.js       # 生成 app.ico / app.icns（纯 Node，无依赖）
 │   ├── make-mac-app.js    # 把二进制包装成 macOS .app
 │   └── tray.ps1           # 托盘菜单脚本
-├── installer/
-│   ├── setup.iss          # Inno Setup 安装包脚本
+├── installer/             # 可选，未接入 CI
+│   ├── setup.iss          # Inno Setup 安装包脚本（可本地手动编译）
 │   └── start-hidden.vbs   # 后台静默启动（不弹控制台黑窗）
 ├── public/                # 前端静态资源
 │   ├── index.html
@@ -181,21 +182,24 @@ myShareBox/
 ```bash
 npm run build:icon    # 生成 assets/app.ico 与 app.icns
 npm run build:win     # → dist/ShareBox.exe
-npm run build:mac     # → dist/ShareBox-macos-arm64 / -x64
+npm run build:mac     # → dist/ShareBox-macos-arm64 / -x64（需在 macOS 上执行）
 ```
 
 推送 tag 后 GitHub Actions 会自动完成双平台构建并发布 Release：
 
 ```bash
-git tag v1.1.0 && git push origin v1.1.0
+git tag v1.1.4
+git push origin v1.1.4   # 单独推送 tag：与分支提交一起推时，GitHub 可能只处理分支事件而不触发构建
 ```
 
 产出物：
 
 | 平台 | 产物 |
 | --- | --- |
-| Windows | `ShareBox.exe`、`LAN-ShareBox-Setup.exe`（Inno Setup 安装包） |
-| macOS | `LAN-ShareBox-arm64.dmg`、`LAN-ShareBox-x64.dmg` |
+| Windows | `ShareBox.exe`（免安装单文件） |
+| macOS | `LAN-ShareBox-arm64.dmg`、`LAN-ShareBox-x64.dmg`，以及同名 `.zip` 备用 |
+
+> Windows 安装包暂不提供：`installer/setup.iss` 已保留，但 Inno Setup 在 CI 上编译失败且拿不到构建日志，本地装好 Inno Setup 6 后执行 `ISCC.exe installer\setup.iss` 即可自行产出。
 
 > macOS 必须在 macOS 环境（或 GitHub Actions 的 macos runner）上构建：
 > Apple 芯片拒绝运行未签名的 arm64 二进制，Windows 上交叉构建无法完成签名。

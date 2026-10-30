@@ -33,26 +33,9 @@ jobs:
         continue-on-error: true
         run: npx --yes rcedit@4 dist/ShareBox.exe --set-icon assets/app.ico --set-file-version "1.1.3" --set-product-version "1.1.3"
 
-      - name: 生成安装包 (Inno Setup)
-        # 免安装 exe 才是主要产物，安装包失败不阻塞发布
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $candidates = @(
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
-          )
-          $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-          if (-not $iscc) {
-            Write-Host "Inno Setup 未预装，使用 choco 安装..."
-            choco install innosetup --no-progress -y
-            $iscc = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-          }
-          if (-not $iscc) { Write-Host "::error::ISCC.exe 不可用"; exit 1 }
-          Write-Host "ISCC: $iscc"
-          & $iscc "installer\setup.iss"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
+      # Windows 只发布免安装单文件 exe。Inno Setup 在 CI 上编译失败且拿不到
+      # 构建日志（job 日志需 admin 权限），已放弃安装包方案；installer/setup.iss
+      # 保留在仓库中，将来需要时可在本地手动编译。
       - uses: actions/upload-artifact@v4
         with:
           name: ShareBox-Windows
